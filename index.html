@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SketchScan — Black & White Scanner</title>
+<style>
+  :root { color-scheme: dark; --bg:#101318; --panel:#191f27; --panel2:#222a35; --line:#303a48; --text:#f1f4f8; --muted:#aab5c3; --accent:#70b7ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif; }
+  header { padding:22px clamp(16px,4vw,42px); border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .brand { font-size:22px; font-weight:800; letter-spacing:-.6px; }
+  .brand span { color:var(--accent); }
+  .tag { color:var(--muted); font-size:12px; border:1px solid var(--line); padding:5px 9px; border-radius:99px; }
+  main { width:min(1120px, calc(100% - 28px)); margin:26px auto 50px; }
+  .intro { margin-bottom:20px; }
+  h1 { font-size:clamp(24px,4vw,34px); margin:0 0 5px; letter-spacing:-.8px; }
+  p { color:var(--muted); margin:0; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+  button,.upload-label { border:1px solid var(--line); background:var(--panel2); color:var(--text); border-radius:11px; padding:11px 15px; font:600 14px system-ui; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+  button.primary { background:var(--accent); color:#081522; border-color:var(--accent); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  input[type=file] { display:none; }
+  .workspace { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(270px,.85fr); gap:16px; align-items:start; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .panel-head { padding:14px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .panel-head strong { font-size:14px; }
+  .canvas-area { padding:14px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .canvas-wrap { min-width:0; }
+  .canvas-title { font-size:12px; color:var(--muted); margin:0 0 8px; }
+  canvas { width:100%; height:auto; display:block; background:#fff; border-radius:9px; border:1px solid #3a4655; min-height:130px; object-fit:contain; }
+  .empty { aspect-ratio:4/3; display:grid; place-items:center; color:#667384; text-align:center; padding:20px; font-size:13px; background:#fff; border-radius:9px; }
+  .empty b { display:block; color:#394657; font-size:15px; margin-bottom:4px; }
+  .controls { padding:16px; }
+  .control { margin-bottom:19px; }
+  .control:last-child { margin-bottom:0; }
+  .control-top { display:flex; justify-content:space-between; gap:12px; margin-bottom:8px; font-size:13px; }
+  output { color:var(--accent); font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--accent); cursor:pointer; }
+  .hint { font-size:11px; color:var(--muted); margin-top:5px; }
+  .side-actions { display:flex; gap:8px; padding:0 16px 16px; }
+  .side-actions button { flex:1; }
+  .note { margin-top:15px; font-size:12px; color:var(--muted); }
+  @media(max-width:760px) { .workspace { grid-template-columns:1fr; } .canvas-area { grid-template-columns:1fr 1fr; } }
+  @media(max-width:430px) { .canvas-area { grid-template-columns:1fr; } header { padding:17px 15px; } }
+</style>
+</head>
+<body>
+<header><div class="brand">Sketch<span>Scan</span></div><div class="tag">BLACK & WHITE SCANNER</div></header>
+<main>
+  <section class="intro"><h1>Turn photos into clean line art.</h1><p>Upload a drawing, tune the lines, and export a crisp black-and-white PNG.</p></section>
+  <div class="toolbar">
+    <label class="upload-label" for="fileInput">＋ Upload photo</label>
+    <input id="fileInput" type="file" accept="image/*" capture="environment" />
+    <button id="resetBtn" disabled>Reset adjustments</button>
+    <button id="downloadBtn" class="primary" disabled>↓ Export PNG</button>
+  </div>
+  <section class="workspace">
+    <div class="panel">
+      <div class="panel-head"><strong>Preview</strong><span id="imageStatus" class="tag">No image loaded</span></div>
+      <div class="canvas-area">
+        <div class="canvas-wrap"><div class="canvas-title">Original photo</div><div id="originalEmpty" class="empty"><div><b>Your photo goes here</b>Upload or take a picture of your drawing.</div></div><canvas id="originalCanvas" hidden></canvas></div>
+        <div class="canvas-wrap"><div class="canvas-title">Scanned result</div><div id="resultEmpty" class="empty"><div><b>Processed image</b>Your black-and-white result will appear here.</div></div><canvas id="resultCanvas" hidden></canvas></div>
+      </div>
+    </div>
+    <aside class="panel">
+      <div class="panel-head"><strong>Image adjustments</strong><span class="tag">Live preview</span></div>
+      <div class="controls">
+        <div class="control"><div class="control-top"><label for="threshold">Line threshold</label><output id="thresholdOut">145</output></div><input id="threshold" type="range" min="0" max="255" value="145"><div class="hint">Lower = fewer marks become black. Higher = more marks become black.</div></div>
+        <div class="control"><div class="control-top"><label for="brightness">Brightness</label><output id="brightnessOut">0</output></div><input id="brightness" type="range" min="-100" max="100" value="0"></div>
+        <div class="control"><div class="control-top"><label for="contrast">Contrast</label><output id="contrastOut">0</output></div><input id="contrast" type="range" min="-100" max="100" value="0"></div>
+        <div class="control"><div class="control-top"><label for="noise">Noise removal</label><output id="noiseOut">0</output></div><input id="noise" type="range" min="0" max="3" value="0"><div class="hint">Removes tiny specks. Higher settings can erase fine details.</div></div>
+        <div class="control"><div class="control-top"><label for="thickness">Line thickness</label><output id="thicknessOut">0</output></div><input id="thickness" type="range" min="-2" max="2" value="0"><div class="hint">Positive makes lines thicker; negative makes them thinner.</div></div>
+        <div class="control">
+          <div class="control-top"><label>Output pixel size</label><output id="sizeOut">720 × 720 max</output></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label class="hint">Width (px)<input id="targetWidth" type="number" min="1" max="10000" value="720" style="display:block;width:100%;margin-top:5px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font:inherit"></label>
+            <label class="hint">Height (px)<input id="targetHeight" type="number" min="1" max="10000" value="720" style="display:block;width:100%;margin-top:5px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font:inherit"></label>
+          </div>
+          <div class="hint">The image keeps its proportions and fits inside these dimensions. Smaller images won't be enlarged.</div>
+        </div>
+      </div>
+      <div class="side-actions"><button id="blackWhiteBtn" disabled>Black on white</button><button id="invertBtn" disabled>Invert</button></div>
+    </aside>
+  </section>
+  <p class="note">Tip: For the cleanest scan, photograph your paper in bright, even lighting and keep the camera parallel to the page. Your image is processed in this browser; it is not uploaded to a server.</p>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const fileInput = $('fileInput'), originalCanvas = $('originalCanvas'), resultCanvas = $('resultCanvas');
+  const originalCtx = originalCanvas.getContext('2d', { willReadFrequently:true });
+  const resultCtx = resultCanvas.getContext('2d', { willReadFrequently:true });
+  const controls = ['threshold','brightness','contrast','noise','thickness'];
+  let sourceImage = null, inverted = false;
+  const defaults = {threshold:145, brightness:0, contrast:0, noise:0, thickness:0};
+  function setEnabled(on) { ['resetBtn','downloadBtn','blackWhiteBtn','invertBtn'].forEach(id => $(id).disabled = !on); }
+  function loadImage(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      sourceImage = img;
+      const scale = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+      originalCanvas.width = resultCanvas.width = w; originalCanvas.height = resultCanvas.height = h;
+      originalCtx.fillStyle = '#fff'; originalCtx.fillRect(0,0,w,h); originalCtx.drawImage(img,0,0,w,h);
+      originalCanvas.hidden = false; resultCanvas.hidden = false; $('originalEmpty').hidden = true; $('resultEmpty').hidden = true;
+      $('imageStatus').textContent = `${w} × ${h}`; setEnabled(true); process(); URL.revokeObjectURL(url);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); alert('Could not open that image. Try a JPG or PNG.'); };
+    img.src = url;
+  }
+  function morph(data, w, h, amount) {
+    if (!amount) return data;
+    const src = new Uint8ClampedArray(data), radius = Math.abs(amount), dilate = amount > 0;
+    for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
+      let value = dilate ? 255 : 0;
+      for (let dy=-radius;dy<=radius;dy++) for (let dx=-radius;dx<=radius;dx++) {
+        const xx=x+dx, yy=y+dy; if (xx<0||yy<0||xx>=w||yy>=h) continue;
+        const v=src[(yy*w+xx)*4]; value = dilate ? Math.min(value,v) : Math.max(value,v);
+      }
+      const i=(y*w+x)*4; data[i]=data[i+1]=data[i+2]=value; data[i+3]=255;
+    }
+    return data;
+  }
+  function removeSpecks(data,w,h,level) {
+    if (!level) return data;
+    const src = new Uint8ClampedArray(data), radius = level;
+    for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++) {
+      const i=(y*w+x)*4; if(src[i]>0) continue;
+      let black=0,total=0;
+      for(let dy=-radius;dy<=radius;dy++) for(let dx=-radius;dx<=radius;dx++) { total++; if(src[((y+dy)*w+x+dx)*4]===0) black++; }
+      if(black<=Math.max(1,Math.floor(total*0.22))) data[i]=data[i+1]=data[i+2]=255;
+    }
+    return data;
+  }
+  function process() {
+    if (!sourceImage) return;
+    const w=originalCanvas.width,h=originalCanvas.height;
+    const threshold=+$('threshold').value, brightness=+$('brightness').value, contrast=+$('contrast').value;
+    const noise=+$('noise').value, thickness=+$('thickness').value;
+    const factor=(259*(contrast+255))/(255*(259-contrast));
+    const image=originalCtx.getImageData(0,0,w,h), out=originalCtx.createImageData(w,h);
+    for(let i=0;i<image.data.length;i+=4) {
+      let gray=.299*image.data[i]+.587*image.data[i+1]+.114*image.data[i+2];
+      gray=factor*(gray-128)+128+brightness*1.5;
+      let v=gray<threshold?0:255; if(inverted) v=255-v;
+      out.data[i]=out.data[i+1]=out.data[i+2]=v; out.data[i+3]=255;
+    }
+    let pixels=out.data;
+    if(noise) pixels=removeSpecks(pixels,w,h,noise);
+    if(thickness) pixels=morph(pixels,w,h,thickness);
+    const workCanvas=document.createElement('canvas');
+    workCanvas.width=w; workCanvas.height=h;
+    const workCtx=workCanvas.getContext('2d');
+    workCtx.putImageData(pixels===out.data ? out : new ImageData(pixels,w,h),0,0);
+    const maxW=Math.max(1,Math.min(10000,parseInt($('targetWidth').value,10)||720));
+    const maxH=Math.max(1,Math.min(10000,parseInt($('targetHeight').value,10)||720));
+    const scale=Math.min(1,maxW/w,maxH/h);
+    const outW=Math.max(1,Math.round(w*scale)), outH=Math.max(1,Math.round(h*scale));
+    resultCanvas.width=outW; resultCanvas.height=outH;
+    resultCtx.imageSmoothingEnabled=true;
+    resultCtx.imageSmoothingQuality='high';
+    resultCtx.clearRect(0,0,outW,outH);
+    resultCtx.drawImage(workCanvas,0,0,outW,outH);
+    $('sizeOut').textContent=`${outW} × ${outH} px`;
+  }
+  controls.forEach(id => { $(id).addEventListener('input', () => { $(id+'Out').textContent=$(id).value; process(); }); });
+  ['targetWidth','targetHeight'].forEach(id => $(id).addEventListener('input', process));
+  fileInput.addEventListener('change', e => loadImage(e.target.files[0]));
+  $('resetBtn').addEventListener('click', () => { controls.forEach(id => { $(id).value=defaults[id]; $(id+'Out').textContent=defaults[id]; }); inverted=false; process(); });
+  $('invertBtn').addEventListener('click', () => { inverted=!inverted; process(); });
+  $('blackWhiteBtn').addEventListener('click', () => { inverted=false; process(); });
+  $('downloadBtn').addEventListener('click', () => { const a=document.createElement('a'); a.download='sketchscan-line-art.png'; a.href=resultCanvas.toDataURL('image/png'); a.click(); });
+})();
+</script>
+</body>
+</html>
